@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitPulse Gemma — Open-Source Contribution Finder (PS #20)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            alabaster: '#F8FAFC',
+            pearl: '#F1F5F9',
+            deepSlate: '#0F172A',
+            bodySlate: '#334155',
+            royalIndigo: '#4F46E5',
+            emeraldMatch: '#10B981',
+            amberMatch: '#F59E0B',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #F8FAFC;
+      color: #334155;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease;
+    }
+    /* Subtle Pearl Contrast Enhancer Mode */
+    body.pearl-mode {
+      background-color: #EEF2F6;
+    }
+    body.pearl-mode .surface-card {
+      border-color: #CBD5E1 !important;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.07), 0 8px 10px -6px rgba(15, 23, 42, 0.04) !important;
+    }
+    .bento-card {
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+    }
+    .bento-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 30px -10px rgba(79, 70, 229, 0.09), 0 8px 16px -6px rgba(15, 23, 42, 0.06);
+      border-color: #A5B4FC;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- TOP STICKY GLASSMORPHIC TELEMETRY HEADER -->
+  <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/90">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <!-- Left Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/30">
+          <i data-lucide="git-pull-request-arrow" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-tight text-[#0F172A]">GitPulse Gemma</span>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              PS #20 • Track 2: Best Use of Gemma
+            </span>
+          </div>
+          <p class="text-xs text-[#334155] hidden md:block">
+            Zero-Noise Open-Source Contribution Finder &amp; Jargon Buster
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Live Telemetry Bar & Contrast Enhancer -->
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <!-- Live Engine Status Pill -->
+        <div id="telemetry-pill" class="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200/90 text-xs font-medium text-[#0F172A] shadow-2xs">
+          <span class="relative flex h-2.5 w-2.5">
+            <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span class="font-semibold text-[#0F172A]" id="engine-label">Engine: Google Gemma (gemma2:2b via Local Ollama)</span>
+          <span class="text-slate-300">|</span>
+          <span class="font-mono text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100" id="latency-badge">
+            -- ms
+          </span>
+        </div>
+
+        <!-- Light / Pearl Mode Subtle Contrast Enhancer -->
+        <button
+          id="pearl-mode-btn"
+          onclick="togglePearlMode()"
+          title="Toggle Alabaster / Pearl Contrast Mode"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#0F172A] border border-slate-200 text-xs font-semibold shadow-2xs transition cursor-pointer"
+        >
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span id="pearl-mode-label" class="hidden sm:inline">Light / Pearl Mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- HERO SKILL SELECTOR BAR -->
+    <section class="surface-card bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 sm:p-8">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6 border-b border-slate-100">
+        <div class="space-y-2 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+            Real-Time "Actually Open" Readiness Filter Active
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            Find your first verified open-source PR—explained in plain English by Gemma.
+          </h1>
+          <p class="text-sm sm:text-base text-[#334155]">
+            Select your tech stack below. We filter out assigned, closed, and ghost issues, then run local <span class="font-mono font-semibold text-[#0F172A] bg-slate-100 px-1.5 py-0.5 rounded">gemma2:2b</span> to score fit, bust developer jargon, and generate your exact 3-step terminal plan.
+          </p>
+        </div>
+
+        <!-- Experience Level Selector -->
+        <div class="flex flex-col sm:items-end gap-2 shrink-0">
+          <label class="text-xs font-bold uppercase tracking-wider text-[#334155]">Contributor Experience Level</label>
+          <div class="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200">
+            <button
+              type="button"
+              id="exp-beginner"
+              onclick="setExperience('Beginner')"
+              class="px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer bg-white text-[#0F172A] shadow-xs"
+            >
+              🌱 Beginner (1st PR)
+            </button>
+            <button
+              type="button"
+              id="exp-intermediate"
+              onclick="setExperience('Intermediate')"
+              class="px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-[#334155] hover:text-[#0F172A]"
+            >
+              ⚡ Intermediate
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clickable Skill Pills -->
+      <div class="pt-6 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i>
+            1. Click to Select Your Skills &amp; Interests
+          </span>
+          <span id="selected-count-label" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+            3 skills selected
+          </span>
+        </div>
+
+        <div id="skill-pills-container" class="flex flex-wrap gap-2">
+          <!-- Dynamically populated by JS -->
+        </div>
+
+        <!-- Custom Skill Input + Primary Execution Controls -->
+        <div class="pt-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div class="flex items-center gap-2 flex-1 max-w-md">
+            <div class="relative flex-1">
+              <i data-lucide="plus-circle" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input
+                id="custom-skill-input"
+                type="text"
+                placeholder="Add custom skill or topic (e.g., Docker, Pandas, CLI)..."
+                onkeydown="if(event.key === 'Enter') addCustomSkill()"
+                class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+              />
+            </div>
+            <button
+              type="button"
+              onclick="addCustomSkill()"
+              class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] font-semibold text-xs border border-slate-200 transition cursor-pointer shrink-0"
+            >
+              Add Skill
+            </button>
+          </div>
+
+          <!-- Primary & Fallback Action Buttons -->
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              id="btn-curated"
+              onclick="discoverIssues('curated')"
+              class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#0F172A] border border-slate-300 font-semibold text-sm shadow-2xs transition cursor-pointer"
+            >
+              <i data-lucide="database-zap" class="w-4 h-4 text-emerald-600"></i>
+              <span>Load Curated Live Dataset</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-live"
+              onclick="discoverIssues('live')"
+              class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm shadow-indigo-500/25 transition cursor-pointer"
+            >
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Scan Live GitHub + Run Gemma</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3-CARD METRIC SUMMARY ROW -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <!-- Metric 1: Issues Scanned -->
+      <div class="surface-card bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex items-center justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-[#334155]">Issues Scanned</span>
+          <div class="flex items-baseline gap-2">
+            <span id="metric-scanned" class="text-3xl font-extrabold text-[#0F172A]">28</span>
+            <span id="metric-source-badge" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+              Verified Feed
+            </span>
+          </div>
+          <p class="text-xs text-[#334155]">Raw candidate issues inspected</p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+          <i data-lucide="radar" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Metric 2: Stale / Taken Filtered Out -->
+      <div class="surface-card bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex items-center justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-[#334155]">Stale / Taken Filtered Out</span>
+          <div class="flex items-baseline gap-2">
+            <span id="metric-filtered" class="text-3xl font-extrabold text-[#0F172A]">22</span>
+            <span class="text-xs font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+              Blocked Ghost PRs
+            </span>
+          </div>
+          <p class="text-xs text-[#334155]">Assigned (`assignee != null`) or inactive</p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+          <i data-lucide="filter-x" class="w-6 h-6"></i>
+        </div>
+      </div>
+
+      <!-- Metric 3: High-Match Issues Found -->
+      <div class="surface-card bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex items-center justify-between">
+        <div class="space-y-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-[#334155]">High-Match Issues Found</span>
+          <div class="flex items-baseline gap-2">
+            <span id="metric-matched" class="text-3xl font-extrabold text-[#0F172A]">6</span>
+            <span class="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              100% Unassigned
+            </span>
+          </div>
+          <p class="text-xs text-[#334155]">Ranked &amp; decoded by Gemma 2B</p>
+        </div>
+        <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+          <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION HEADER FOR BENTO GRID -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+      <div>
+        <h2 class="text-xl font-extrabold text-[#0F172A] flex items-center gap-2">
+          <span>Gemma-Verified Contribution Opportunities</span>
+          <span id="results-count-pill" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-200/80 text-[#0F172A]">6 Issues</span>
+        </h2>
+        <p class="text-xs sm:text-sm text-[#334155]">
+          Click any issue card to launch the interactive <strong>Deep Dive &amp; PR Starter</strong> slide-over panel.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 text-xs font-semibold text-[#334155]">
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span> 85%+ Ideal Match
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span> 60–84% Strong Fit
+        </span>
+      </div>
+    </div>
+
+    <!-- 2-COLUMN ASYMMETRIC BENTO GRID OF ISSUE CARDS -->
+    <section id="issues-bento-grid" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Populated dynamically via JS -->
+    </section>
+
+  </main>
+
+  <!-- INTERACTIVE DEEP DIVE & PR STARTER SLIDE-OVER MODAL -->
+  <div id="slide-over-backdrop" class="fixed inset-0 z-50 hidden">
+    <!-- Light translucent backdrop -->
+    <div
+      onclick="closeDeepDiveModal()"
+      class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs transition-opacity"
+    ></div>
+
+    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div class="w-screen max-w-2xl bg-white border-l border-slate-200 shadow-2xl flex flex-col justify-between overflow-y-auto">
+        <!-- Modal Sticky Top Bar -->
+        <div class="sticky top-0 z-10 bg-white/95 backdrop-blur-md px-6 py-5 border-b border-slate-200 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2.5">
+            <span id="modal-repo-badge" class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+              owner/repo #000
+            </span>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+              Verified Open &amp; Unassigned
+            </span>
+          </div>
+          <button
+            type="button"
+            onclick="closeDeepDiveModal()"
+            class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] transition cursor-pointer"
+          >
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div class="p-6 space-y-6 flex-1">
+          <!-- Title & Score -->
+          <div class="space-y-3">
+            <div class="flex items-center gap-2 flex-wrap" id="modal-badges-row"></div>
+            <h3 id="modal-issue-title" class="text-xl sm:text-2xl font-extrabold text-[#0F172A] leading-snug">
+              Issue Title
+            </h3>
+          </div>
+
+          <!-- Gemma Why It Fits & Jargon Buster -->
+          <div class="grid grid-cols-1 gap-4">
+            <div class="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-1.5">
+              <div class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-indigo-800">
+                <i data-lucide="cpu" class="w-4 h-4 text-indigo-600"></i>
+                Why Gemma Matched This To Your Stack
+              </div>
+              <p id="modal-why-fits" class="text-sm font-medium text-[#0F172A]"></p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1.5">
+              <div class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-900">
+                <i data-lucide="book-open-check" class="w-4 h-4 text-emerald-700"></i>
+                Gemma Jargon Buster (Plain-English Translation)
+              </div>
+              <p id="modal-jargon-buster" class="text-sm text-[#0F172A] leading-relaxed"></p>
+            </div>
+          </div>
+
+          <!-- Gemma's First 3 Steps -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
+              <i data-lucide="list-ordered" class="w-4 h-4 text-indigo-600"></i>
+              Gemma's First 3 Concrete Steps
+            </h4>
+            <div id="modal-steps-list" class="space-y-2.5"></div>
+          </div>
+
+          <!-- Exact Git Clone & Branch Starter Commands (High-Contrast Light Terminal) -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
+                <i data-lucide="terminal" class="w-4 h-4 text-indigo-600"></i>
+                Instant Terminal PR Starter Commands
+              </h4>
+              <button
+                type="button"
+                onclick="copyGitCommands()"
+                id="copy-git-btn"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition cursor-pointer"
+              >
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Copy Commands</span>
+              </button>
+            </div>
+            <pre id="modal-git-commands" class="p-4 rounded-2xl bg-[#F1F5F9] border border-slate-300 font-mono text-xs text-[#0F172A] overflow-x-auto leading-relaxed"></pre>
+          </div>
+
+          <!-- Interactive First-Time Contributor Checklist -->
+          <div class="space-y-3 pt-2">
+            <h4 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
+              <i data-lucide="check-square" class="w-4 h-4 text-emerald-600"></i>
+              First-Time Contributor PR Readiness Checklist
+            </h4>
+            <div class="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <label class="flex items-start gap-3 text-sm text-[#0F172A] cursor-pointer">
+                <input type="checkbox" checked class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Verified issue has <strong>zero assignees</strong> and no linked open Pull Request.</span>
+              </label>
+              <label class="flex items-start gap-3 text-sm text-[#0F172A] cursor-pointer">
+                <input type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Forked the repository on GitHub and cloned locally onto a dedicated feature branch.</span>
+              </label>
+              <label class="flex items-start gap-3 text-sm text-[#0F172A] cursor-pointer">
+                <input type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Executed Gemma's 3-step reproduction &amp; verification plan locally.</span>
+              </label>
+              <label class="flex items-start gap-3 text-sm text-[#0F172A] cursor-pointer">
+                <input type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Posted a polite claim comment on the GitHub issue thread.</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Gemma Claim Comment Generator -->
+          <div class="space-y-3 pt-1">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
+                <i data-lucide="message-square-plus" class="w-4 h-4 text-indigo-600"></i>
+                Polite Maintainer Claim Comment (Powered by Gemma)
+              </h4>
+              <button
+                type="button"
+                id="btn-draft-comment"
+                onclick="generateClaimComment()"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer shadow-2xs"
+              >
+                <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
+                <span>Draft with Gemma</span>
+              </button>
+            </div>
+            <div id="claim-comment-box" class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-[#0F172A] leading-relaxed">
+              Click <strong>"Draft with Gemma"</strong> to generate a ready-to-paste GitHub comment asking the maintainers to assign this issue to you.
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Sticky Footer -->
+        <div class="sticky bottom-0 z-10 bg-white px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onclick="closeDeepDiveModal()"
+            class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#0F172A] font-semibold text-sm transition cursor-pointer"
+          >
+            Close Panel
+          </button>
+          <a
+            id="modal-github-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition"
+          >
+            <span>Open Issue on GitHub</span>
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200/80 bg-white mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#334155]">
+      <div class="flex items-center gap-2 font-medium text-[#0F172A]">
+        <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+        <span>GitPulse Gemma • Hacktoberfest Hack Day Track 2: Best Use of Gemma (PS #20)</span>
+      </div>
+      <div>
+        Powered by Local Ollama (<code class="font-mono text-[#0F172A]">gemma2:2b</code>) &amp; GitHub REST API
+      </div>
+    </div>
+  </footer>
+
+  <!-- APPLICATION JAVASCRIPT -->
+  <script>
+    const AVAILABLE_SKILLS = [
+      "Python",
+      "FastAPI",
+      "React",
+      "Tailwind",
+      "C++",
+      "Bug Fix",
+      "Docs",
+      "Flask",
+      "TypeScript",
+      "Machine Learning"
+    ];
+
+    let selectedSkills = ["Python", "FastAPI", "React"];
+    let currentExperience = "Beginner";
+    let currentIssues = [];
+    let activeModalIssue = null;
+    let pearlMode = false;
+
+    function renderSkillPills() {
+      const container = document.getElementById("skill-pills-container");
+      container.innerHTML = "";
+
+      AVAILABLE_SKILLS.forEach(skill => {
+        const isSelected = selectedSkills.includes(skill);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.onclick = () => toggleSkill(skill);
+
+        if (isSelected) {
+          btn.className =
+            "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#4F46E5] text-white shadow-xs transition cursor-pointer";
+          btn.innerHTML = `<span>${skill}</span><i data-lucide="check" class="w-3.5 h-3.5"></i>`;
+        } else {
+          btn.className =
+            "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-[#0F172A] border border-slate-200 transition cursor-pointer";
+          btn.innerHTML = `<span>${skill}</span>`;
+        }
+        container.appendChild(btn);
+      });
+
+      document.getElementById("selected-count-label").textContent =
+        `${selectedSkills.length} skill${selectedSkills.length === 1 ? "" : "s"} selected`;
+      lucide.createIcons();
+    }
+
+    function toggleSkill(skill) {
+      if (selectedSkills.includes(skill)) {
+        if (selectedSkills.length > 1) {
+          selectedSkills = selectedSkills.filter(s => s !== skill);
+        }
+      } else {
+        selectedSkills.push(skill);
+      }
+      renderSkillPills();
+    }
+
+    function addCustomSkill() {
+      const input = document.getElementById("custom-skill-input");
+      const val = input.value.trim();
+      if (!val) return;
+      if (!AVAILABLE_SKILLS.includes(val)) {
+        AVAILABLE_SKILLS.push(val);
+      }
+      if (!selectedSkills.includes(val)) {
+        selectedSkills.push(val);
+      }
+      input.value = "";
+      renderSkillPills();
+    }
+
+    function setExperience(level) {
+      currentExperience = level;
+      const begBtn = document.getElementById("exp-beginner");
+      const intBtn = document.getElementById("exp-intermediate");
+      if (level === "Beginner") {
+        begBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer bg-white text-[#0F172A] shadow-xs";
+        intBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-[#334155] hover:text-[#0F172A]";
+      } else {
+        intBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer bg-white text-[#0F172A] shadow-xs";
+        begBtn.className = "px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer text-[#334155] hover:text-[#0F172A]";
+      }
+    }
+
+    function togglePearlMode() {
+      pearlMode = !pearlMode;
+      document.body.classList.toggle("pearl-mode", pearlMode);
+      const label = document.getElementById("pearl-mode-label");
+      label.textContent = pearlMode ? "Pearl Contrast: ON" : "Light / Pearl Mode";
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        const dot = document.getElementById("status-dot");
+        const ping = document.getElementById("status-ping");
+        const latencyBadge = document.getElementById("latency-badge");
+        const engineLabel = document.getElementById("engine-label");
+
+        if (data.online) {
+          dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+          ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+          latencyBadge.textContent = `${data.latency_ms} ms`;
+          engineLabel.textContent = `Engine: Google Gemma (${data.model} via Local Ollama)`;
+        } else {
+          dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
+          ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
+          latencyBadge.textContent = "Standby";
+          engineLabel.textContent = `Engine: Google Gemma (${data.model} Smart Standby)`;
+        }
+      } catch (e) {
+        console.warn("Health check warning:", e);
+      }
+    }
+
+    function renderSkeletonLoading() {
+      const grid = document.getElementById("issues-bento-grid");
+      grid.innerHTML = "";
+      for (let i = 0; i < 4; i++) {
+        const colSpan = (i === 0 || i === 3) ? "lg:col-span-7" : "lg:col-span-5";
+        const skel = document.createElement("div");
+        skel.className = `${colSpan} surface-card bg-white rounded-2xl border border-slate-200 p-6 space-y-4`;
+        skel.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="h-6 w-40 rounded-lg skeleton-shimmer"></div>
+            <div class="h-6 w-28 rounded-full skeleton-shimmer"></div>
+          </div>
+          <div class="h-7 w-5/6 rounded-lg skeleton-shimmer"></div>
+          <div class="h-20 w-full rounded-xl skeleton-shimmer"></div>
+          <div class="h-16 w-full rounded-xl skeleton-shimmer"></div>
+          <div class="space-y-2 pt-2">
+            <div class="h-4 w-3/4 rounded skeleton-shimmer"></div>
+            <div class="h-4 w-2/3 rounded skeleton-shimmer"></div>
+          </div>
+        `;
+        grid.appendChild(skel);
+      }
+    }
+
+    function getMatchBadgeClasses(score) {
+      if (score >= 85) {
+        return {
+          bg: "bg-[#10B981]/15 text-[#065F46] border-[#10B981]/40",
+          dot: "bg-[#10B981]",
+          label: `${score}% Gemma Match`
+        };
+      }
+      if (score >= 60) {
+        return {
+          bg: "bg-[#F59E0B]/15 text-[#92400E] border-[#F59E0B]/40",
+          dot: "bg-[#F59E0B]",
+          label: `${score}% Gemma Match`
+        };
+      }
+      return {
+        bg: "bg-slate-100 text-[#0F172A] border-slate-300",
+        dot: "bg-slate-500",
+        label: `${score}% Gemma Match`
+      };
+    }
+
+    function renderIssuesGrid(issues) {
+      const grid = document.getElementById("issues-bento-grid");
+      grid.innerHTML = "";
+      document.getElementById("results-count-pill").textContent = `${issues.length} Issues`;
+
+      issues.forEach((issue, idx) => {
+        // 2-Column Asymmetric Bento Pattern (7-5, 5-7, 7-5)
+        const pattern = ["lg:col-span-7", "lg:col-span-5", "lg:col-span-5", "lg:col-span-7", "lg:col-span-7", "lg:col-span-5"];
+        const colSpan = pattern[idx % pattern.length];
+        const score = issue.gemma ? issue.gemma.match_score : 85;
+        const badge = getMatchBadgeClasses(score);
+
+        const card = document.createElement("article");
+        card.onclick = () => openDeepDiveModal(issue);
+        card.className = `${colSpan} surface-card bento-card bg-white rounded-2xl border border-slate-200/90 p-6 flex flex-col justify-between gap-5 cursor-pointer`;
+
+        const labelsHtml = (issue.labels || []).slice(0, 4).map(lbl => `
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-[#0F172A] border border-slate-200/80">
+            ${escapeHtml(lbl)}
+          </span>
+        `).join("");
+
+        const stepsHtml = (issue.gemma?.first_3_steps || []).slice(0, 3).map((step, sIdx) => `
+          <li class="flex items-start gap-2.5 text-xs text-[#334155]">
+            <span class="w-5 h-5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold flex items-center justify-center shrink-0 mt-0.5">
+              ${sIdx + 1}
+            </span>
+            <span class="font-mono text-[#0F172A] leading-relaxed">${escapeHtml(step)}</span>
+          </li>
+        `).join("");
+
+        card.innerHTML = `
+          <div class="space-y-4">
+            <!-- Top Row: Repo + Verified Badge + Match Score -->
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-[#0F172A] border border-slate-200">
+                  ${escapeHtml(issue.repo_full_name)} #${issue.number}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                  ${escapeHtml(issue.verified_badge || "Verified Open & Unassigned")}
+                </span>
+              </div>
+
+              <!-- Match Score Pill -->
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border ${badge.bg}">
+                <span class="w-2 h-2 rounded-full ${badge.dot}"></span>
+                ${badge.label}
+              </span>
+            </div>
+
+            <!-- Issue Title -->
+            <h3 class="text-lg font-extrabold text-[#0F172A] leading-snug group-hover:text-indigo-600">
+              ${escapeHtml(issue.title)}
+            </h3>
+
+            <!-- Labels Row -->
+            <div class="flex flex-wrap gap-1.5">
+              ${labelsHtml}
+            </div>
+
+            <!-- Gemma Why It Fits Callout -->
+            <div class="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-1">
+              <div class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-800">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-600"></i>
+                Why It Fits Your Skills
+              </div>
+              <p class="text-xs sm:text-sm font-medium text-[#0F172A]">
+                ${escapeHtml(issue.gemma?.why_it_fits || "")}
+              </p>
+            </div>
+
+            <!-- Gemma Jargon Buster Callout -->
+            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+              <div class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#0F172A]">
+                <i data-lucide="languages" class="w-3.5 h-3.5 text-emerald-600"></i>
+                Gemma Jargon Buster (1st-Year Friendly)
+              </div>
+              <p class="text-xs sm:text-sm text-[#334155] leading-relaxed">
+                ${escapeHtml(issue.gemma?.jargon_buster || "")}
+              </p>
+            </div>
+
+            <!-- First 3 Steps Preview -->
+            <div class="space-y-2 pt-1">
+              <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
+                <i data-lucide="terminal" class="w-3.5 h-3.5 text-indigo-600"></i>
+                First 3 Steps To Solve
+              </div>
+              <ol class="space-y-1.5">
+                ${stepsHtml}
+              </ol>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-[#334155] flex items-center gap-1.5">
+              <i data-lucide="message-circle" class="w-3.5 h-3.5 text-slate-400"></i>
+              ${issue.comments || 0} comments • Unassigned
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-xs font-bold text-[#4F46E5] hover:text-indigo-800">
+              <span>Deep Dive &amp; PR Starter</span>
+              <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+            </span>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    async function discoverIssues(mode = "curated") {
+      renderSkeletonLoading();
+      const customQuery = document.getElementById("custom-skill-input").value.trim();
+
+      try {
+        const res = await fetch("/api/discover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            skills: selectedSkills,
+            experience: currentExperience,
+            mode: mode,
+            custom_query: customQuery
+          })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          currentIssues = data.issues || [];
+          document.getElementById("metric-scanned").textContent = data.metrics.issues_scanned;
+          document.getElementById("metric-filtered").textContent = data.metrics.stale_or_taken_filtered;
+          document.getElementById("metric-matched").textContent = data.metrics.high_match_found;
+          document.getElementById("metric-source-badge").textContent = data.data_source;
+          document.getElementById("latency-badge").textContent = `${data.avg_latency_ms} ms`;
+          document.getElementById("engine-label").textContent = `Engine: ${data.engine}`;
+
+          renderIssuesGrid(currentIssues);
+        }
+      } catch (err) {
+        console.error("Failed to discover issues:", err);
+      }
+    }
+
+    function openDeepDiveModal(issue) {
+      activeModalIssue = issue;
+      document.getElementById("modal-repo-badge").textContent = `${issue.repo_full_name} #${issue.number}`;
+      document.getElementById("modal-issue-title").textContent = issue.title;
+      document.getElementById("modal-why-fits").textContent = issue.gemma?.why_it_fits || "";
+      document.getElementById("modal-jargon-buster").textContent = issue.gemma?.jargon_buster || "";
+      document.getElementById("modal-github-link").href = issue.html_url;
+
+      const score = issue.gemma?.match_score || 88;
+      const badge = getMatchBadgeClasses(score);
+      const badgesRow = document.getElementById("modal-badges-row");
+      badgesRow.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border ${badge.bg}">
+          <span class="w-2 h-2 rounded-full ${badge.dot}"></span>
+          ${badge.label}
+        </span>
+      ` + (issue.labels || []).map(l => `
+        <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-[#0F172A] border border-slate-200">
+          ${escapeHtml(l)}
+        </span>
+      `).join("");
+
+      const stepsContainer = document.getElementById("modal-steps-list");
+      stepsContainer.innerHTML = (issue.gemma?.first_3_steps || []).map((s, i) => `
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+          <span class="w-6 h-6 rounded-lg bg-[#4F46E5] text-white font-bold text-xs flex items-center justify-center shrink-0">
+            ${i + 1}
+          </span>
+          <p class="font-mono text-xs text-[#0F172A] leading-relaxed">${escapeHtml(s)}</p>
+        </div>
+      `).join("");
+
+      const repoNameOnly = (issue.repo_full_name || "repo").split("/").pop();
+      const slug = (issue.title || "fix")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 28);
+
+      const gitBlock = [
+        `# 1. Clone the repository & enter directory`,
+        `git clone https://github.com/${issue.repo_full_name}.git`,
+        `cd ${repoNameOnly}`,
+        ``,
+        `# 2. Create a clean feature branch for Issue #${issue.number}`,
+        `git checkout -b fix/issue-${issue.number}-${slug}`,
+        ``,
+        `# 3. After making your changes, stage, commit, and push`,
+        `git status`,
+        `git commit -am "fix: resolve issue #${issue.number}"`,
+        `git push -u origin fix/issue-${issue.number}-${slug}`
+      ].join("\n");
+
+      document.getElementById("modal-git-commands").textContent = gitBlock;
+      document.getElementById("claim-comment-box").innerHTML =
+        `Click <strong>"Draft with Gemma"</strong> to generate a ready-to-paste GitHub comment asking the maintainers to assign Issue #${issue.number} to you.`;
+
+      document.getElementById("slide-over-backdrop").classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function closeDeepDiveModal() {
+      document.getElementById("slide-over-backdrop").classList.add("hidden");
+    }
+
+    function copyGitCommands() {
+      const text = document.getElementById("modal-git-commands").textContent;
+      navigator.clipboard.writeText(text);
+      const btn = document.getElementById("copy-git-btn");
+      btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Copied!</span>`;
+      lucide.createIcons();
+      setTimeout(() => {
+        btn.innerHTML = `<i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Copy Commands</span>`;
+        lucide.createIcons();
+      }, 1800);
+    }
+
+    async function generateClaimComment() {
+      if (!activeModalIssue) return;
+      const box = document.getElementById("claim-comment-box");
+      box.innerHTML = `<span class="text-indigo-700 font-semibold">Gemma (gemma2:2b) is drafting your polite claim comment...</span>`;
+
+      try {
+        const res = await fetch("/api/claim-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: activeModalIssue.title,
+            repo_full_name: activeModalIssue.repo_full_name,
+            number: activeModalIssue.number,
+            skills: selectedSkills,
+            first_3_steps: activeModalIssue.gemma?.first_3_steps || []
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          box.textContent = data.comment;
+          document.getElementById("latency-badge").textContent = `${data.latency_ms} ms`;
+        }
+      } catch (e) {
+        box.textContent = "Hi maintainers! I'd love to work on this issue and submit a clean Pull Request. Could you please assign it to me?";
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Initialize on DOM load
+    window.addEventListener("DOMContentLoaded", () => {
+      renderSkillPills();
+      checkHealth();
+      discoverIssues("curated");
+      setInterval(checkHealth, 15000);
+    });
+  </script>
+</body>
+</html>
